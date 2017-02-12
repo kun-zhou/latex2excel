@@ -1,0 +1,134 @@
+####################################################
+## This program allows one to parse csv to excel. ##
+## Multirow and multicolumn will be respected.    ## 
+####################################################
+from openpyxl import Workbook
+from openpyxl import utils
+from openpyxl.styles import Border, Alignment, Side
+import click
+import re
+
+    
+    
+@click.command()
+@click.argument('input', type=click.File('r'))
+@click.argument('output', nargs=1)
+def inout(input, output):
+    '''
+    This function takes a file containing tabular environment as input and output a csv
+    The script assumes each line is on a different line
+    '''
+    
+    # Opening Excel Worksheet
+    double = Side(border_style="thin", color="000000")
+    start_col = 2
+    start_row = 2
+    # Counter
+    info = input.read()
+    for idx, table in enumerate(re.findall(r'\\begin{tabular}{.*?}(.*?)\\end{tabular}',info,re.DOTALL)):
+        col = start_col
+        row = start_row
+        total_col = 0
+        if idx==0:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Table 1"
+        else:
+            ws = wb.create_sheet("Mysheet")
+            ws.title = "Table {}".format(str(idx+1))
+        table = table.split(r"\\")
+        for line in table:
+            curLine = line
+            curLine = re.sub(r"\\cmidrule{.*?}",'',curLine)
+            curLine = re.sub(r"\\midrule",'',curLine)
+            curLine = re.sub(r"\\toprule",'',curLine)
+            curLine = re.sub(r"\\bottomrule",'',curLine)
+            curLine = curLine.replace("\n",'')
+            curLine = curLine.rstrip().split("&")
+            # looping through all lines in the csv file
+            for item in curLine:
+                item = item.strip()
+                curLoc = utils.cell.get_column_letter(col) + str(row)
+                if 'multicolumn' in item:          
+                    match = re.search(r'\\multicolumn{(.*?)}{(.*?)}{(.*)}', item)
+                    text = match.group(3)
+                    span2=1 # This provides a default in case not nested
+                    if 'multirow' in text:
+                        match2 = re.search(r'\\multirow{(.*)}{(.*)}{(.*)}', text)
+                        if not match2:
+                            match2 = re.search(r'\\multirow{(.*)}\[.*\]{(.*)}{(.*)}', text)
+                        span2 = int(match2.group(1))
+                        # align = match.group(2)
+                        text = match2.group(3)
+                    span = int(match.group(1))
+                    align = match.group(2)
+                    try:
+                        text = int(text)
+                    except:
+                        pass
+                    if align == "l":
+                        align = "left"
+                    elif align == "c":
+                        align = "center"
+                    else:
+                        align = "right"
+                    ws[curLoc] = text
+                    ws[curLoc].alignment = Alignment(horizontal=align, vertical="center")
+                    mergeLoc = utils.cell.get_column_letter(col + span - 1) + str(row + span2 - 1)
+                    ws.merge_cells("{}:{}".format(curLoc, mergeLoc))
+                    col += span
+                elif 'multirow' in item:
+                    match = re.search(r'\\multirow{(.*)}{(.*)}{(.*)}', item)
+                    if not match:
+                        match = re.search(r'\\multirow{(.*)}\[.*\]{(.*)}{(.*)}', item)
+                    span = int(match.group(1))
+                    # align = match.group(2)
+                    text = match.group(3)
+                    try:
+                        text = int(text)
+                    except:
+                        pass
+                    ws[curLoc] = text
+                    ws[curLoc].alignment = Alignment(horizontal="center", vertical="center")
+                    mergeLoc = utils.cell.get_column_letter(col) + str(row + span - 1)
+                    ws.merge_cells("{}:{}".format(curLoc, mergeLoc))
+                    col += 1
+                else:
+                    col+=1
+                    if item.replace(" ","")=="":
+                        continue
+                    try:
+                        item = int(item)
+                    except:
+                        pass
+                    ws[curLoc] = item
+                    
+            # total colums number is col-1
+            if r"\midrule" in line or r"\toprule" in line:
+                loc_1 = utils.cell.get_column_letter(start_col) + str(row)
+                loc_2 = utils.cell.get_column_letter(col-1) + str(row)
+                comb_loc = "{}:{}".format(loc_1, loc_2)
+                for cell in ws[comb_loc][0]:
+                    cell.border = Border(top=double)
+            if r"\bottomrule" in line:
+                loc_1 = utils.cell.get_column_letter(start_col) + str(row)
+                loc_2 = utils.cell.get_column_letter(total_col) + str(row)
+                comb_loc = "{}:{}".format(loc_1, loc_2)
+                for cell in ws[comb_loc][0]:
+                    cell.border = Border(top=double)
+            if 'cmidrule' in line:
+                    for match in re.findall(r'\\cmidrule{([0-9]*)-([0-9]*)}', line):
+                        loc_1 = utils.cell.get_column_letter(int(match[0])+start_col-1) + str(row)
+                        loc_2 = utils.cell.get_column_letter(int(match[1])+start_col-1) + str(row)
+                        comb_loc = "{}:{}".format(loc_1, loc_2)
+                        for cell in ws[comb_loc][0]:
+                            cell.border = Border(top=double)
+            if total_col==0:
+                total_col = col -1
+            col = start_col # reset column number to one
+            row += 1
+            
+    # Closing
+    wb.save("{}.xlsx".format(output))
+    
+inout()
