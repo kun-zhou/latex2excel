@@ -15,7 +15,7 @@ import re
 @click.argument('output', nargs=1)
 def inout(input, output):
     '''
-    This function takes a file containing tabular environment as input and output a csv
+    This function takes a file containing tabular environment as input and output an Excel file
     The script assumes each line is on a different line
     '''
     
