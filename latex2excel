@@ -1,58 +1,68 @@
-####################################################
-## This program allows one to parse csv to excel. ##
-## Multirow and multicolumn will be respected.    ## 
-####################################################
+#!/usr/bin/python3
+
+#########################################################
+## This program allows one to parse latex to excel.    ##
+## Multirow and multicolumn commands will be respected.##
+#########################################################
+
 from openpyxl import Workbook
 from openpyxl import utils
 from openpyxl.styles import Border, Alignment, Side
+
 import click
 import re
 
-    
-    
+
 @click.command()
-@click.argument('input', type=click.File('r'))
-@click.argument('output', nargs=1)
-def inout(input, output):
+@click.argument('input', type=click.File('r')) #File is automatically closed
+@click.argument('outName', nargs=1)
+def inout(input, outName):
     '''
-    This function takes a file containing tabular environment as input and output an Excel file
-    The script assumes each line is on a different line
+    This script takes a latex file containing multiple tabular environments as
+    input and outputs an Excel workbook version of all tables in which each worksheet
+    contains one table. The package is currently compatible with `booktabs` package and
+    `\multicolumn` commands. The more common `\hline` commands is not currently supported
     '''
-    
-    # Opening Excel Worksheet
+
+    # Default value for table borders
     double = Side(border_style="thin", color="000000")
+
+    # Specify the location of the upper-left cell of the table
     start_col = 2
     start_row = 2
-    # Counter
-    info = input.read()
-    for idx, table in enumerate(re.findall(r'\\begin{tabular}{.*?}(.*?)\\end{tabular}',info,re.DOTALL)):
+
+    # Reads the latex file into memory
+    inFile = input.read()
+    for idx, table in enumerate(re.findall(r'\\begin{tabular}{.*?}(.*?)\\end{tabular}', inFile, re.DOTALL)):  # Enumerating through all tables in the file
         col = start_col
         row = start_row
         total_col = 0
-        if idx==0:
+        if idx == 0:  # Use the pre-established sheet for table 1
             wb = Workbook()
             ws = wb.active
             ws.title = "Table 1"
-        else:
-            ws = wb.create_sheet("Mysheet")
-            ws.title = "Table {}".format(str(idx+1))
+        else:  # Creates a new worksheet for all following tables
+            ws = wb.create_sheet(title="Table {}".format(str(idx + 1)))
         table = table.split(r"\\")
         for line in table:
             curLine = line
-            curLine = re.sub(r"\\cmidrule{.*?}",'',curLine)
-            curLine = re.sub(r"\\midrule",'',curLine)
-            curLine = re.sub(r"\\toprule",'',curLine)
-            curLine = re.sub(r"\\bottomrule",'',curLine)
-            curLine = curLine.replace("\n",'')
+
+            # Striping away all the special characters in the table
+            curLine = re.sub(r"\\cmidrule{.*?}", '', curLine)
+            curLine = re.sub(r"\\midrule", '', curLine)
+            curLine = re.sub(r"\\toprule", '', curLine)
+            curLine = re.sub(r"\\bottomrule", '', curLine)
+            curLine = curLine.replace("\n", '')
             curLine = curLine.rstrip().split("&")
-            # looping through all lines in the csv file
+
+            # looping through all cells in the current row
             for item in curLine:
                 item = item.strip()
                 curLoc = utils.cell.get_column_letter(col) + str(row)
-                if 'multicolumn' in item:          
+                if 'multicolumn' in item:
                     match = re.search(r'\\multicolumn{(.*?)}{(.*?)}{(.*)}', item)
                     text = match.group(3)
-                    span2=1 # This provides a default in case not nested
+                    span2 = 1  # This provides a default in case not nested
                     if 'multirow' in text:
                         match2 = re.search(r'\\multirow{(.*)}{(.*)}{(.*)}', text)
                         if not match2:
@@ -94,19 +104,20 @@ def inout(input, output):
                     ws.merge_cells("{}:{}".format(curLoc, mergeLoc))
                     col += 1
                 else:
-                    col+=1
-                    if item.replace(" ","")=="":
+                    col += 1
+                    if item.replace(" ", "") == "":
                         continue
                     try:
                         item = int(item)
                     except:
                         pass
                     ws[curLoc] = item
-                    
+
+            # Applying borders to excel table
             # total colums number is col-1
             if r"\midrule" in line or r"\toprule" in line:
                 loc_1 = utils.cell.get_column_letter(start_col) + str(row)
-                loc_2 = utils.cell.get_column_letter(col-1) + str(row)
+                loc_2 = utils.cell.get_column_letter(col - 1) + str(row)
                 comb_loc = "{}:{}".format(loc_1, loc_2)
                 for cell in ws[comb_loc][0]:
                     cell.border = Border(top=double)
@@ -117,18 +128,19 @@ def inout(input, output):
                 for cell in ws[comb_loc][0]:
                     cell.border = Border(top=double)
             if 'cmidrule' in line:
-                    for match in re.findall(r'\\cmidrule{([0-9]*)-([0-9]*)}', line):
-                        loc_1 = utils.cell.get_column_letter(int(match[0])+start_col-1) + str(row)
-                        loc_2 = utils.cell.get_column_letter(int(match[1])+start_col-1) + str(row)
-                        comb_loc = "{}:{}".format(loc_1, loc_2)
-                        for cell in ws[comb_loc][0]:
-                            cell.border = Border(top=double)
-            if total_col==0:
-                total_col = col -1
-            col = start_col # reset column number to one
+                for match in re.findall(r'\\cmidrule{([0-9]*)-([0-9]*)}', line):
+                    loc_1 = utils.cell.get_column_letter(int(match[0]) + start_col - 1) + str(row)
+                    loc_2 = utils.cell.get_column_letter(int(match[1]) + start_col - 1) + str(row)
+                    comb_loc = "{}:{}".format(loc_1, loc_2)
+                    for cell in ws[comb_loc][0]:
+                        cell.border = Border(top=double)
+            if total_col == 0:
+                total_col = col - 1
+            col = start_col  # reset column number to one
             row += 1
-            
-    # Closing
-    wb.save("{}.xlsx".format(output))
-    
+
+    # Saving the workbook
+    wb.save("{}.xlsx".format(outName))
+
+
 inout()
