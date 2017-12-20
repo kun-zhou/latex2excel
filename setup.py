@@ -6,6 +6,7 @@ setup(
     description='Convert LaTeX tables to Excel sheets',
     keywords='latex excel',
     author='Kun Zhou',
+    author_email='kunzhou@eml.cc',
     url='https://github.com/kun-zhou/latex2excel',
     license='GNU GPLv3',
     py_modules=['latex2excel'],
