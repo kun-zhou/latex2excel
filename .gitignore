@@ -1,0 +1,6 @@
+tests
+.DS_Store
+__pycache__
+dist
+latex2excel.egg-info
+venv

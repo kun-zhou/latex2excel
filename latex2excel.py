@@ -12,14 +12,11 @@ import re
 
 
 @click.command()
-@click.argument('input', type=click.File('r')) #File is automatically closed
-@click.option('-o', default="out",help='Output file name /wo extension')
-def latex2excel(input, o):
+@click.argument('file', type=click.File('r')) #File is automatically closed
+@click.option('-o', 'output_file_name', metavar='<name>', help='output file (less extension)')
+def main(file, output_file_name):
     '''
-    This script takes a latex file containing multiple tabular environments as
-    input and outputs an Excel workbook version of all tables in which each worksheet
-    contains one table. The package is currently compatible with `booktabs` package and
-    `\multicolumn` commands. The more common `\hline` commands is not currently supported
+    This script extracts the tables from file and writes the Excel version of them to the file specificed by -o.
     '''
 
     # Default value for table borders
@@ -30,7 +27,7 @@ def latex2excel(input, o):
     start_row = 2
 
     # Reads the latex file into memory
-    inFile = input.read()
+    inFile = file.read()
     for idx, table in enumerate(re.findall(r'(\\begin{tabular}.*?\\end{tabular})', inFile, re.DOTALL)):  # Enumerating through all tables in the file
         col_pos_match = re.search(r'\\begin{tabular}{(.*?)}', table)
         col_pos = col_pos_match.group(1)
@@ -142,5 +139,6 @@ def latex2excel(input, o):
             row += 1
 
     # Saving the workbook
-    wb.save("{}.xlsx".format(o))
-latex2excel()
+    if output_file_name == None:
+        output_file_name=file.name
+    wb.save("{}.xlsx".format(output_file_name))
