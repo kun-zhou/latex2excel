@@ -1,5 +1,7 @@
 # latex2excel
-This script consumes a LaTeX source code file containing multiple tabular environments and generates an Excel workbook where each table is stored in an individual worksheet. In addition to traditional commands like `\hline` and `\multicolumn`, many commands from the `booktabs` package are also supported. Try it out!
+This script consumes a LaTeX source code file containing multiple tabular environments and generates an Excel workbook where each table is stored in an individual worksheet. In addition to traditional commands like `\hline` and `\multicolumn`, many commands from the `booktabs` package are also supported. I wrote this script during my tenure as a research assistant.
+
+Try it out!
 
 ## Install
 Make sure you have `pip` installed. Then run `pip install latex2excel` or `pip3 install latex2excel`.
